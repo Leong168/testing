@@ -37,16 +37,12 @@
             <div id="reader" class="rounded-lg overflow-hidden shadow-inner"></div>
             <div id="scanned-info" class="w-full text-center p-4 bg-blue-50 rounded-lg hidden">
                 <p class="text-sm font-semibold text-gray-700">Scanned Order ID:</p>
-                <p id="scanned-data" class="text-lg font-bold text-blue-800 break-words mt-1"></p>
+                <p id="scanned-do" class="text-lg font-bold text-blue-800 break-words mt-1"></p>
+                <p class="text-sm font-semibold text-gray-700 mt-2">Scanned Name:</p>
+                <p id="scanned-name" class="text-lg font-bold text-blue-800 break-words mt-1"></p>
             </div>
         </div>
         
-        <!-- Name Input Section -->
-        <div id="name-input-section" class="w-full hidden">
-            <label for="order-name" class="block text-sm font-medium text-gray-700">Enter Name:</label>
-            <input type="text" id="order-name" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" placeholder="e.g., John Doe" />
-        </div>
-
         <!-- Order Status Buttons -->
         <div id="status-actions" class="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4 items-center justify-center hidden">
             <button id="complete-btn" class="w-full sm:w-1/2 p-3 bg-green-500 text-white font-semibold rounded-lg shadow-md hover:bg-green-600 transition-colors">
@@ -128,9 +124,8 @@
         document.addEventListener('DOMContentLoaded', () => {
             const reader = document.getElementById('reader');
             const scannedInfo = document.getElementById('scanned-info');
-            const scannedDataDisplay = document.getElementById('scanned-data');
-            const nameInputSection = document.getElementById('name-input-section');
-            const orderNameInput = document.getElementById('order-name');
+            const scannedDoDisplay = document.getElementById('scanned-do');
+            const scannedNameDisplay = document.getElementById('scanned-name');
             const statusActions = document.getElementById('status-actions');
             const completeBtn = document.getElementById('complete-btn');
             const incompleteBtn = document.getElementById('incomplete-btn');
@@ -149,6 +144,7 @@
 
             let orders = [];
             let currentOrderID = null;
+            let currentName = null;
             let html5QrCode;
 
             // Initialize the QR code scanner
@@ -170,10 +166,21 @@
                         }
                         lastScannedText = decodedText;
                         debounceTimeout = setTimeout(() => {
-                            scannedDataDisplay.textContent = decodedText;
-                            currentOrderID = decodedText;
+                            // Split the decodedText to get DO no and Name
+                            const parts = decodedText.split(',');
+                            const doNoPart = parts[0].trim();
+                            const namePart = parts[1].trim();
+                            
+                            // Regex to extract the value from a quoted string like "DO no: "value""
+                            const doNoMatch = doNoPart.match(/"DO no":\s*"(.*?)"/);
+                            const nameMatch = namePart.match(/"Name":\s*"(.*?)"/);
+                            
+                            currentOrderID = doNoMatch ? doNoMatch[1] : decodedText;
+                            currentName = nameMatch ? nameMatch[1] : 'N/A';
+
+                            scannedDoDisplay.textContent = currentOrderID;
+                            scannedNameDisplay.textContent = currentName;
                             scannedInfo.classList.remove('hidden');
-                            nameInputSection.classList.remove('hidden'); // Show the name input
                             statusActions.classList.remove('hidden');
                             
                             html5QrCode.pause();
@@ -241,11 +248,10 @@
             // Add new order function
             function addNewOrder(status, comment = null) {
                 if (!currentOrderID) return;
-                const orderName = orderNameInput.value.trim();
                 const now = new Date();
                 const order = {
-                    doNo: currentOrderID, // Store DO No as a separate field
-                    name: orderName, // Store Name as a separate field
+                    doNo: currentOrderID,
+                    name: currentName,
                     status: status,
                     comment: comment,
                     date: now.toLocaleDateString(),
@@ -262,9 +268,8 @@
             // Reset UI after an order is processed
             function resetUI() {
                 currentOrderID = null;
+                currentName = null;
                 scannedInfo.classList.add('hidden');
-                nameInputSection.classList.add('hidden');
-                orderNameInput.value = ''; // Clear the name input field
                 statusActions.classList.add('hidden');
             }
 

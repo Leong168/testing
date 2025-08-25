@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>API Update Test</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    padding: 20px;
+    max-width: 400px;
+    margin: auto;
+  }
+  button {
+    width: 100%;
+    padding: 15px;
+    margin-top: 10px;
+    font-size: 1.1rem;
+    cursor: pointer;
+  }
+  #message {
+    margin-top: 20px;
+    font-weight: bold;
+    min-height: 24px;
+  }
+  #message.success { color: green; }
+  #message.error { color: red; }
+</style>
+</head>
+<body>
+
+<h2>Simulated API Update Test</h2>
+
+<button id="btn-complete">Mark Order Complete</button>
+<button id="btn-incomplete">Mark Order Incomplete</button>
+
+<div id="message"></div>
+
+<script>
+  const btnComplete = document.getElementById('btn-complete');
+  const btnIncomplete = document.getElementById('btn-incomplete');
+  const message = document.getElementById('message');
+
+  function fakeApiUpdate(data) {
+    console.log("API call simulated with data:", data);
+    return new Promise((resolve, reject) => {
+      setTimeout(() => {
+        // Always resolve (success) here
+        resolve();
+        // To simulate failure uncomment below:
+        // reject(new Error("Simulated API failure"));
+      }, 1000);
+    });
+  }
+
+  function showMessage(text, isError = false) {
+    message.textContent = text;
+    message.className = isError ? 'error' : 'success';
+  }
+
+  btnComplete.addEventListener('click', () => {
+    showMessage("Updating order to complete...");
+    fakeApiUpdate({ orderNumber: "12345", status: "completed" })
+      .then(() => showMessage("Order marked as completed!"))
+      .catch(err => showMessage("Failed: " + err.message, true));
+  });
+
+  btnIncomplete.addEventListener('click', () => {
+    showMessage("Updating order to incomplete...");
+    fakeApiUpdate({ orderNumber: "12345", status: "incomplete" })
+      .then(() => showMessage("Order marked as incomplete!"))
+      .catch(err => showMessage("Failed: " + err.message, true));
+  });
+</script>
+
+</body>
+</html>

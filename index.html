@@ -18,6 +18,7 @@
             max-width: 500px;
             margin: auto;
         }
+        /* Hides the default QR code library's dashboard buttons */
         #reader__dashboard_section_csr_button {
             display: none !important;
         }
@@ -116,32 +117,52 @@
 
             // Initialize the QR code scanner
             function startScanner() {
-                // html5QrCode is re-initialized to ensure fresh state and prevent issues on restarts.
+                // We re-initialize the Html5Qrcode object each time to ensure a fresh state.
                 html5QrCode = new Html5Qrcode("reader");
                 const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+                let lastScannedText = null;
+                let debounceTimeout = null;
                 
                 html5QrCode.start(
                     { facingMode: "environment" },
                     config,
                     (decodedText, decodedResult) => {
-                        // Success callback
-                        html5QrCode.stop().then(() => {
-                            // After stopping the scanner, update UI and process the QR code data.
+                        // Use a debounce to prevent processing the same QR code multiple times
+                        // in rapid succession, which can happen with a live camera feed.
+                        if (lastScannedText === decodedText) {
+                            return;
+                        }
+                        if (debounceTimeout) {
+                            clearTimeout(debounceTimeout);
+                        }
+                        lastScannedText = decodedText;
+                        debounceTimeout = setTimeout(() => {
+                            // After a short delay, process the unique QR code scan
                             scannedDataDisplay.textContent = decodedText;
                             currentOrderID = decodedText;
                             scannedInfo.classList.remove('hidden');
                             statusActions.classList.remove('hidden');
-                        }).catch(err => {
-                            console.error("Failed to stop scanner: ", err);
-                        });
+                            
+                            // Pause the scanner to prevent new scans while the user interacts
+                            html5QrCode.pause();
+                        }, 500);
                     },
                     (errorMessage) => {
-                        // Error callback (called repeatedly)
-                        // This is expected and often means no QR code is in view.
+                        // Error callback is expected for a continuous scan and doesn't need to be logged.
                     }
                 ).catch((err) => {
                     console.error(`Unable to start scanning, make sure camera is available.`, err);
-                    alert("Error: Unable to start the camera. Please ensure camera permissions are granted.");
+                    // Create a custom alert message box instead of using the built-in alert()
+                    const messageBox = document.createElement('div');
+                    messageBox.className = 'fixed inset-0 flex items-center justify-center z-50 p-4';
+                    messageBox.innerHTML = `
+                        <div class="bg-white p-6 rounded-xl shadow-2xl w-full max-w-sm text-center">
+                            <h2 class="text-xl font-semibold mb-4 text-gray-800">Error</h2>
+                            <p class="text-gray-600">Unable to start the camera. Please ensure camera permissions are granted.</p>
+                            <button onclick="this.parentNode.parentNode.remove()" class="mt-4 py-2 px-4 bg-blue-500 text-white font-medium rounded-lg hover:bg-blue-600 transition-colors">OK</button>
+                        </div>
+                    `;
+                    document.body.appendChild(messageBox);
                 });
             }
 
@@ -198,7 +219,10 @@
                 orders.unshift(order); // Add to the beginning of the array
                 saveOrders();
                 resetUI();
-                startScanner(); // Restart the scanner for the next order
+                // Resume the scanner to allow the next scan
+                if (html5QrCode) {
+                    html5QrCode.resume();
+                }
             }
 
             // Reset UI after an order is processed
@@ -228,18 +252,31 @@
                 commentInput.value = '';
                 commentModal.classList.add('hidden');
                 resetUI();
-                startScanner(); // Restart scanner
+                // Resume the scanner on cancel
+                if (html5QrCode) {
+                    html5QrCode.resume();
+                }
             });
 
             // Export to CSV functionality
             exportBtn.addEventListener('click', () => {
                 if (orders.length === 0) {
-                    alert('No data to export.');
+                    // Create a custom alert message box instead of using the built-in alert()
+                    const messageBox = document.createElement('div');
+                    messageBox.className = 'fixed inset-0 flex items-center justify-center z-50 p-4';
+                    messageBox.innerHTML = `
+                        <div class="bg-white p-6 rounded-xl shadow-2xl w-full max-w-sm text-center">
+                            <h2 class="text-xl font-semibold mb-4 text-gray-800">No Data</h2>
+                            <p class="text-gray-600">No data to export yet.</p>
+                            <button onclick="this.parentNode.parentNode.remove()" class="mt-4 py-2 px-4 bg-blue-500 text-white font-medium rounded-lg hover:bg-blue-600 transition-colors">OK</button>
+                        </div>
+                    `;
+                    document.body.appendChild(messageBox);
                     return;
                 }
                 let csv = 'OrderID,Status,Comment,Date,Time\n';
                 orders.forEach(order => {
-                    // Sanitize comments to handle commas
+                    // Sanitize comments to handle commas by wrapping in quotes and escaping inner quotes
                     const comment = `"${order.comment ? order.comment.replace(/"/g, '""') : '—'}"`;
                     csv += `${order.orderId},${order.status},${comment},${order.date},${order.time}\n`;
                 });

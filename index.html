@@ -67,13 +67,34 @@
             </div>
         </div>
 
+        <!-- Confirmation Modal for Clearing History -->
+        <div id="confirmation-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 z-50 flex items-center justify-center hidden p-4">
+            <div class="bg-white p-6 rounded-xl shadow-2xl w-full max-w-sm text-center">
+                <h2 id="confirmation-title" class="text-xl font-semibold mb-4 text-gray-800">Clear History</h2>
+                <p id="confirmation-text" class="text-gray-600 mb-6">Are you sure you want to clear all data? This action cannot be undone.</p>
+                <div class="flex justify-center space-x-4">
+                    <button id="cancel-clear" class="py-2 px-4 bg-gray-200 text-gray-800 font-medium rounded-lg hover:bg-gray-300 transition-colors">
+                        Cancel
+                    </button>
+                    <button id="confirm-clear" class="py-2 px-4 bg-red-500 text-white font-medium rounded-lg hover:bg-red-600 transition-colors">
+                        Clear All
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <!-- Orders List and Export Section -->
         <div class="mt-8">
             <div class="flex justify-between items-center mb-4">
                 <h2 class="text-2xl font-bold text-gray-800">Captured Orders</h2>
-                <button id="export-btn" class="py-2 px-4 bg-gray-800 text-white font-semibold rounded-lg shadow-md hover:bg-gray-700 transition-colors">
-                    Export to Excel
-                </button>
+                <div class="flex space-x-2">
+                    <button id="export-btn" class="py-2 px-4 bg-gray-800 text-white font-semibold rounded-lg shadow-md hover:bg-gray-700 transition-colors">
+                        Export to Excel
+                    </button>
+                    <button id="clear-btn" class="py-2 px-4 bg-gray-400 text-white font-semibold rounded-lg shadow-md hover:bg-gray-500 transition-colors">
+                        Clear History
+                    </button>
+                </div>
             </div>
 
             <div class="overflow-x-auto rounded-lg shadow-md">
@@ -109,7 +130,13 @@
             const submitCommentBtn = document.getElementById('submit-comment');
             const cancelCommentBtn = document.getElementById('cancel-comment');
             const exportBtn = document.getElementById('export-btn');
+            const clearBtn = document.getElementById('clear-btn');
             const ordersTableBody = document.getElementById('orders-table-body');
+            const confirmationModal = document.getElementById('confirmation-modal');
+            const confirmationTitle = document.getElementById('confirmation-title');
+            const confirmationText = document.getElementById('confirmation-text');
+            const confirmClearBtn = document.getElementById('confirm-clear');
+            const cancelClearBtn = document.getElementById('cancel-clear');
 
             let orders = [];
             let currentOrderID = null;
@@ -256,6 +283,50 @@
                 if (html5QrCode) {
                     html5QrCode.resume();
                 }
+            });
+            
+            // Clear History Button - First Confirmation
+            clearBtn.addEventListener('click', () => {
+                if (orders.length === 0) {
+                    const messageBox = document.createElement('div');
+                    messageBox.className = 'fixed inset-0 flex items-center justify-center z-50 p-4';
+                    messageBox.innerHTML = `
+                        <div class="bg-white p-6 rounded-xl shadow-2xl w-full max-w-sm text-center">
+                            <h2 class="text-xl font-semibold mb-4 text-gray-800">No Data</h2>
+                            <p class="text-gray-600">There is no history to clear.</p>
+                            <button onclick="this.parentNode.parentNode.remove()" class="mt-4 py-2 px-4 bg-blue-500 text-white font-medium rounded-lg hover:bg-blue-600 transition-colors">OK</button>
+                        </div>
+                    `;
+                    document.body.appendChild(messageBox);
+                    return;
+                }
+                confirmationTitle.textContent = "Clear History";
+                confirmationText.textContent = "Are you sure you want to clear all data? This action cannot be undone.";
+                confirmClearBtn.textContent = "Confirm";
+                confirmClearBtn.className = 'py-2 px-4 bg-red-500 text-white font-medium rounded-lg hover:bg-red-600 transition-colors';
+                confirmationModal.classList.remove('hidden');
+            });
+            
+            // Second Confirmation and Final Action
+            confirmClearBtn.addEventListener('click', () => {
+                if (confirmClearBtn.textContent === "Confirm") {
+                    // This is the first confirmation, move to the second
+                    confirmationTitle.textContent = "Final Confirmation";
+                    confirmationText.textContent = "This will permanently delete all data. Are you absolutely sure?";
+                    confirmClearBtn.textContent = "Clear All";
+                    confirmClearBtn.className = 'py-2 px-4 bg-red-700 text-white font-medium rounded-lg hover:bg-red-800 transition-colors';
+                } else if (confirmClearBtn.textContent === "Clear All") {
+                    // This is the second confirmation, clear the history
+                    orders = [];
+                    localStorage.removeItem('qrOrders');
+                    renderOrders();
+                    confirmationModal.classList.add('hidden');
+                }
+            });
+
+            // Cancel Confirmation
+            cancelClearBtn.addEventListener('click', () => {
+                confirmationModal.classList.add('hidden');
             });
 
             // Export to CSV functionality

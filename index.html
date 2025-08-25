@@ -166,17 +166,38 @@
                         }
                         lastScannedText = decodedText;
                         debounceTimeout = setTimeout(() => {
-                            // Split the decodedText to get DO no and Name
-                            const parts = decodedText.split(',');
-                            const doNoPart = parts[0].trim();
-                            const namePart = parts[1].trim();
+                            // Trim the text to remove any leading/trailing whitespace
+                            const trimmedText = decodedText.trim();
+                            let doNo = trimmedText;
+                            let name = 'N/A';
+
+                            // Check if the text contains a common delimiter to split DO and Name
+                            if (trimmedText.includes(',')) {
+                                const parts = trimmedText.split(',');
+                                doNo = parts[0] ? parts[0].trim() : 'N/A';
+                                name = parts[1] ? parts[1].trim() : 'N/A';
+                            }
+                            // The QR code data contains the "DO no" and "Name" labels, so we'll try to extract them.
+                            else if (trimmedText.includes('DO no:') || trimmedText.includes('Name:')) {
+                                const doNoMatch = trimmedText.match(/DO no:\s*(.*?),/i);
+                                const nameMatch = trimmedText.match(/Name:\s*"(.*?)"/i);
+                                
+                                doNo = doNoMatch && doNoMatch[1] ? doNoMatch[1].trim() : trimmedText;
+                                name = nameMatch && nameMatch[1] ? nameMatch[1].trim() : 'N/A';
+                                if (doNo === trimmedText && name === 'N/A' && trimmedText.includes('Name:')) {
+                                    // Fallback for cases where only Name is present or the format is different
+                                    const parts = trimmedText.split('Name:');
+                                    doNo = parts[0] ? parts[0].replace('DO no:', '').trim() : 'N/A';
+                                    name = parts[1] ? parts[1].trim() : 'N/A';
+                                }
+                            }
                             
-                            // Regex to extract the value from a quoted string like "DO no: "value""
-                            const doNoMatch = doNoPart.match(/"DO no":\s*"(.*?)"/);
-                            const nameMatch = namePart.match(/"Name":\s*"(.*?)"/);
-                            
-                            currentOrderID = doNoMatch ? doNoMatch[1] : decodedText;
-                            currentName = nameMatch ? nameMatch[1] : 'N/A';
+                            // Remove any surrounding quotes from the extracted values
+                            doNo = doNo.replace(/^"|"$/g, '');
+                            name = name.replace(/^"|"$/g, '');
+
+                            currentOrderID = doNo;
+                            currentName = name;
 
                             scannedDoDisplay.textContent = currentOrderID;
                             scannedNameDisplay.textContent = currentName;
@@ -239,7 +260,7 @@
                         <td class="px-4 py-3 whitespace-nowrap text-sm"><span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColor}">${order.status}</span></td>
                         <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">${comment}</td>
                         <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">${order.date}</td>
-                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">${order.time}</td>
+                        <td class="px-4 py-3 whitespace-now-empty text-sm text-gray-500">${order.time}</td>
                     `;
                     ordersTableBody.appendChild(row);
                 });

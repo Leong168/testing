@@ -350,12 +350,12 @@
                     document.body.appendChild(messageBox);
                     return;
                 }
-                let csv = 'DO No,Name,Status,Comment,Date,Time\n';
+                let csv = 'OrderID,Name,Status,Comment,Date,Time\n';
                 orders.forEach(order => {
                     const doNo = order.doNo ? order.doNo : '';
                     const name = order.name ? order.name.replace(/"/g, '""') : '';
                     const comment = order.comment ? order.comment.replace(/"/g, '""') : '—';
-                    csv += `"${doNo}","${name}",${order.status},"${comment}",${order.date},${order.time}\n`;
+                    csv += `"DO no: "${doNo}"` + `,"Name: "${name}"` + `,${order.status},"${comment}",${order.date},${order.time}\n`;
                 });
 
                 const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });

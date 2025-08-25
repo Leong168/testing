@@ -1,77 +1,265 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>API Update Test</title>
-<style>
-  body {
-    font-family: Arial, sans-serif;
-    padding: 20px;
-    max-width: 400px;
-    margin: auto;
-  }
-  button {
-    width: 100%;
-    padding: 15px;
-    margin-top: 10px;
-    font-size: 1.1rem;
-    cursor: pointer;
-  }
-  #message {
-    margin-top: 20px;
-    font-weight: bold;
-    min-height: 24px;
-  }
-  #message.success { color: green; }
-  #message.error { color: red; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Order Tracker</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        #reader {
+            width: 100%;
+            max-width: 500px;
+            margin: auto;
+        }
+        #reader__dashboard_section_csr_button {
+            display: none !important;
+        }
+    </style>
 </head>
-<body>
+<body class="bg-gray-100 p-4 min-h-screen flex flex-col items-center">
 
-<h2>Simulated API Update Test</h2>
+    <!-- Main Container -->
+    <div class="bg-white p-6 rounded-3xl shadow-xl w-full max-w-4xl mx-auto flex flex-col space-y-6">
 
-<button id="btn-complete">Mark Order Complete</button>
-<button id="btn-incomplete">Mark Order Incomplete</button>
+        <h1 class="text-3xl font-bold text-center text-gray-800 mb-4">QR Order Tracker</h1>
 
-<div id="message"></div>
+        <!-- QR Scanner Section -->
+        <div class="flex flex-col items-center justify-center space-y-4">
+            <p class="text-center text-gray-600">Scan a QR code to capture a new order.</p>
+            <div id="reader" class="rounded-lg overflow-hidden shadow-inner"></div>
+            <div id="scanned-info" class="w-full text-center p-4 bg-blue-50 rounded-lg hidden">
+                <p class="text-sm font-semibold text-gray-700">Scanned Order ID:</p>
+                <p id="scanned-data" class="text-lg font-bold text-blue-800 break-words mt-1"></p>
+            </div>
+        </div>
 
-<script>
-  const btnComplete = document.getElementById('btn-complete');
-  const btnIncomplete = document.getElementById('btn-incomplete');
-  const message = document.getElementById('message');
+        <!-- Order Status Buttons -->
+        <div id="status-actions" class="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4 items-center justify-center hidden">
+            <button id="complete-btn" class="w-full sm:w-1/2 p-3 bg-green-500 text-white font-semibold rounded-lg shadow-md hover:bg-green-600 transition-colors">
+                Complete
+            </button>
+            <button id="incomplete-btn" class="w-full sm:w-1/2 p-3 bg-red-500 text-white font-semibold rounded-lg shadow-md hover:bg-red-600 transition-colors">
+                Incomplete
+            </button>
+        </div>
 
-  function fakeApiUpdate(data) {
-    console.log("API call simulated with data:", data);
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        // Always resolve (success) here
-        resolve();
-        // To simulate failure uncomment below:
-        // reject(new Error("Simulated API failure"));
-      }, 1000);
-    });
-  }
+        <!-- Incomplete Comment Modal -->
+        <div id="comment-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 z-50 flex items-center justify-center hidden p-4">
+            <div class="bg-white p-6 rounded-xl shadow-2xl w-full max-w-sm">
+                <h2 class="text-xl font-semibold mb-4 text-gray-800">Add a Comment</h2>
+                <textarea id="comment-input" rows="4" class="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                <div class="flex justify-end space-x-3 mt-4">
+                    <button id="cancel-comment" class="py-2 px-4 bg-gray-200 text-gray-800 font-medium rounded-lg hover:bg-gray-300 transition-colors">
+                        Cancel
+                    </button>
+                    <button id="submit-comment" class="py-2 px-4 bg-blue-500 text-white font-medium rounded-lg hover:bg-blue-600 transition-colors">
+                        Submit
+                    </button>
+                </div>
+            </div>
+        </div>
 
-  function showMessage(text, isError = false) {
-    message.textContent = text;
-    message.className = isError ? 'error' : 'success';
-  }
+        <!-- Orders List and Export Section -->
+        <div class="mt-8">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold text-gray-800">Captured Orders</h2>
+                <button id="export-btn" class="py-2 px-4 bg-gray-800 text-white font-semibold rounded-lg shadow-md hover:bg-gray-700 transition-colors">
+                    Export to Excel
+                </button>
+            </div>
 
-  btnComplete.addEventListener('click', () => {
-    showMessage("Updating order to complete...");
-    fakeApiUpdate({ orderNumber: "12345", status: "completed" })
-      .then(() => showMessage("Order marked as completed!"))
-      .catch(err => showMessage("Failed: " + err.message, true));
-  });
+            <div class="overflow-x-auto rounded-lg shadow-md">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order ID</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Comment</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
+                        </tr>
+                    </thead>
+                    <tbody id="orders-table-body" class="bg-white divide-y divide-gray-200">
+                        <!-- Order rows will be dynamically inserted here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
 
-  btnIncomplete.addEventListener('click', () => {
-    showMessage("Updating order to incomplete...");
-    fakeApiUpdate({ orderNumber: "12345", status: "incomplete" })
-      .then(() => showMessage("Order marked as incomplete!"))
-      .catch(err => showMessage("Failed: " + err.message, true));
-  });
-</script>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const reader = document.getElementById('reader');
+            const scannedInfo = document.getElementById('scanned-info');
+            const scannedDataDisplay = document.getElementById('scanned-data');
+            const statusActions = document.getElementById('status-actions');
+            const completeBtn = document.getElementById('complete-btn');
+            const incompleteBtn = document.getElementById('incomplete-btn');
+            const commentModal = document.getElementById('comment-modal');
+            const commentInput = document.getElementById('comment-input');
+            const submitCommentBtn = document.getElementById('submit-comment');
+            const cancelCommentBtn = document.getElementById('cancel-comment');
+            const exportBtn = document.getElementById('export-btn');
+            const ordersTableBody = document.getElementById('orders-table-body');
+
+            let orders = [];
+            let currentOrderID = null;
+            let html5QrCode;
+
+            // Initialize the QR code scanner
+            function startScanner() {
+                // html5QrCode is re-initialized to ensure fresh state and prevent issues on restarts.
+                html5QrCode = new Html5Qrcode("reader");
+                const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+                
+                html5QrCode.start(
+                    { facingMode: "environment" },
+                    config,
+                    (decodedText, decodedResult) => {
+                        // Success callback
+                        html5QrCode.stop().then(() => {
+                            // After stopping the scanner, update UI and process the QR code data.
+                            scannedDataDisplay.textContent = decodedText;
+                            currentOrderID = decodedText;
+                            scannedInfo.classList.remove('hidden');
+                            statusActions.classList.remove('hidden');
+                        }).catch(err => {
+                            console.error("Failed to stop scanner: ", err);
+                        });
+                    },
+                    (errorMessage) => {
+                        // Error callback (called repeatedly)
+                        // This is expected and often means no QR code is in view.
+                    }
+                ).catch((err) => {
+                    console.error(`Unable to start scanning, make sure camera is available.`, err);
+                    alert("Error: Unable to start the camera. Please ensure camera permissions are granted.");
+                });
+            }
+
+            // Load orders from localStorage
+            function loadOrders() {
+                const storedOrders = localStorage.getItem('qrOrders');
+                if (storedOrders) {
+                    orders = JSON.parse(storedOrders);
+                    renderOrders();
+                }
+            }
+
+            // Save orders to localStorage
+            function saveOrders() {
+                localStorage.setItem('qrOrders', JSON.stringify(orders));
+                renderOrders();
+            }
+
+            // Render orders to the table
+            function renderOrders() {
+                ordersTableBody.innerHTML = '';
+                if (orders.length === 0) {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `<td colspan="5" class="py-4 text-center text-gray-500">No orders captured yet.</td>`;
+                    ordersTableBody.appendChild(row);
+                    return;
+                }
+                orders.forEach(order => {
+                    const row = document.createElement('tr');
+                    const statusColor = order.status === 'Complete' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
+                    const comment = order.comment ? order.comment : '—';
+                    row.innerHTML = `
+                        <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">${order.orderId}</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm"><span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColor}">${order.status}</span></td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">${comment}</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">${order.date}</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">${order.time}</td>
+                    `;
+                    ordersTableBody.appendChild(row);
+                });
+            }
+
+            // Add new order function
+            function addNewOrder(status, comment = null) {
+                if (!currentOrderID) return;
+                const now = new Date();
+                const order = {
+                    orderId: currentOrderID,
+                    status: status,
+                    comment: comment,
+                    date: now.toLocaleDateString(),
+                    time: now.toLocaleTimeString()
+                };
+                orders.unshift(order); // Add to the beginning of the array
+                saveOrders();
+                resetUI();
+                startScanner(); // Restart the scanner for the next order
+            }
+
+            // Reset UI after an order is processed
+            function resetUI() {
+                currentOrderID = null;
+                scannedInfo.classList.add('hidden');
+                statusActions.classList.add('hidden');
+            }
+
+            // Event Listeners
+            completeBtn.addEventListener('click', () => {
+                addNewOrder('Complete');
+            });
+
+            incompleteBtn.addEventListener('click', () => {
+                commentModal.classList.remove('hidden');
+            });
+
+            submitCommentBtn.addEventListener('click', () => {
+                const comment = commentInput.value.trim();
+                addNewOrder('Incomplete', comment);
+                commentInput.value = '';
+                commentModal.classList.add('hidden');
+            });
+
+            cancelCommentBtn.addEventListener('click', () => {
+                commentInput.value = '';
+                commentModal.classList.add('hidden');
+                resetUI();
+                startScanner(); // Restart scanner
+            });
+
+            // Export to CSV functionality
+            exportBtn.addEventListener('click', () => {
+                if (orders.length === 0) {
+                    alert('No data to export.');
+                    return;
+                }
+                let csv = 'OrderID,Status,Comment,Date,Time\n';
+                orders.forEach(order => {
+                    // Sanitize comments to handle commas
+                    const comment = `"${order.comment ? order.comment.replace(/"/g, '""') : '—'}"`;
+                    csv += `${order.orderId},${order.status},${comment},${order.date},${order.time}\n`;
+                });
+
+                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement("a");
+                const url = URL.createObjectURL(blob);
+                link.setAttribute("href", url);
+                link.setAttribute("download", "orders.csv");
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            });
+
+            // Initial setup
+            loadOrders();
+            startScanner();
+        });
+    </script>
 
 </body>
 </html>
